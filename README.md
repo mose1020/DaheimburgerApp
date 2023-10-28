@@ -2,5 +2,5 @@
 
 ## Activate virtual environment
 ```
-source venv/bin/activate
+source venv_daheimburgerapp/bin/activate
 ```
