@@ -85,18 +85,19 @@ KV = """
 ScreenManager:
     MenuScreen:
     OrderScreen:
+    OrderListScreen:
 
 <MenuScreen>:
     name: 'menu'
     BoxLayout:
         orientation: 'vertical'
         MDTopAppBar:
-            title: 'My App'
+            title: 'Hauptmenü'
             md_bg_color: .2, .2, .2, 1
             specific_text_color: 1, 1, 1, 1
         ScrollView:
             MDList:
-                id: container
+                id: table_name
         MDTextField:
             id: item_textfield
             hint_text: "Enter item name"
@@ -110,17 +111,33 @@ ScreenManager:
 
 <OrderScreen>:
     name: 'order'
-
     MDRectangleFlatButton:
-        text: 'Back'
+        text: 'Back to menu'
         pos_hint: {'center_x': 0.5, 'center_y': 0.4}
         on_release: app.switch_to_menu()
+    
+    MDRectangleFlatButton:
+        text: 'Take Order'
+        pos_hint: {'center_x': 0.5, 'center_y': 0.3}
+        on_release: app.switch_to_order_list()
+
+<OrderListScreen>:
+    name: 'order_list'
+    BoxLayout:
+        orientation: 'vertical'
+         ScrollView:
+            MDList:
+                id: container
+
 """
 
 class MenuScreen(Screen):
     pass
 
 class OrderScreen(Screen):
+    pass
+
+class OrderListScreen(Screen):
     pass
 
 class DemoApp(MDApp):
@@ -145,7 +162,7 @@ class DemoApp(MDApp):
             item.add_widget(icon_right)
             icon_left.bind(on_release=lambda x: self.remove_item(item))
             icon_right.bind(on_release=lambda x: self.switch_to_order())
-            self.root.get_screen('menu').ids.container.add_widget(item)
+            self.root.get_screen('menu').ids.table_name.add_widget(item)
 
     def add_item(self):
         item_name = self.root.get_screen('menu').ids.item_textfield.text.strip()
@@ -158,7 +175,7 @@ class DemoApp(MDApp):
             item.add_widget(icon_right)
             icon_left.bind(on_release=lambda x: self.remove_item(item))
             icon_right.bind(on_release=lambda x: self.switch_to_order())
-            self.root.get_screen('menu').ids.container.add_widget(item)
+            self.root.get_screen('menu').ids.table_name.add_widget(item)
             self.root.get_screen('menu').ids.item_textfield.text = ""
             self.cur.execute("INSERT INTO items VALUES (?)", (item_name,))
             self.conn.commit()
@@ -168,11 +185,11 @@ class DemoApp(MDApp):
             self.cur.execute('''CREATE TABLE IF NOT EXISTS items
                             (name TEXT)''')
             self.conn.commit()
-            self.root.get_screen('menu').ids.container.clear_widgets()
+            self.root.get_screen('menu').ids.table_name.clear_widgets()
             self.root.get_screen('menu').ids.item_textfield.text = ""
 
     def remove_item(self, item):
-        self.root.get_screen('menu').ids.container.remove_widget(item)
+        self.root.get_screen('menu').ids.table_name.remove_widget(item)
         item_name = item.text
         try:
             self.cur.execute("DELETE FROM items WHERE name=?", (item_name,))
@@ -186,6 +203,9 @@ class DemoApp(MDApp):
 
     def switch_to_menu(self):
         self.root.current = 'menu'
+    
+    def switch_to_order_list(self):
+        self.root.current = 'order_list'
 
 
 
