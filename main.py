@@ -437,15 +437,18 @@
 
 from kivymd.app import MDApp
 from kivy.metrics import dp
-from kivy.uix.boxlayout import BoxLayout
+from kivymd.uix.boxlayout import BoxLayout
+from kivymd.uix.gridlayout import GridLayout
 from kivy.lang import Builder
 from kivymd.uix.button import MDRectangleFlatButton
 from kivymd.uix.label import MDLabel
 from kivy.uix.screenmanager import Screen, ScreenManager
-from kivymd.uix.list import OneLineAvatarIconListItem, IconLeftWidget, IconRightWidget
+from kivymd.uix.list import OneLineAvatarIconListItem, IconLeftWidget, IconRightWidget,ThreeLineAvatarListItem,MDList
 import sqlite3
 import csv
 import os
+from kivy.uix.scrollview import ScrollView
+
 
 
 KV = """
@@ -545,7 +548,7 @@ class DemoApp(MDApp):
         self.cur.execute('''CREATE TABLE IF NOT EXISTS items
                             (name TEXT)''')
         self.cur.execute('''CREATE TABLE IF NOT EXISTS orders
-                        (item_id TEXT, quantity INTEGER)''')  # Create the "orders" tabl
+                        (item_id TEXT, quantity INTEGER,tabel TEXT)''')  # Create the "orders" tabl
         self.conn.commit()
         self.cur.execute("SELECT * FROM items")
         items = self.cur.fetchall()
@@ -561,22 +564,22 @@ class DemoApp(MDApp):
             self.root.get_screen('menu').ids.table_name.add_widget(item)
 
     def add_item(self):
-        item_name = self.root.get_screen('menu').ids.item_textfield.text.strip()
+        self.item_name = self.root.get_screen('menu').ids.item_textfield.text.strip()
 
-        if item_name:
+        if self.item_name:
             icon_left = IconLeftWidget(icon="delete")
             icon_right = IconRightWidget(icon="import")
-            item = OneLineAvatarIconListItem(text=item_name)
+            item = OneLineAvatarIconListItem(text=self.item_name)
             item.add_widget(icon_left)
             item.add_widget(icon_right)
             icon_left.bind(on_release=lambda x: self.remove_item(item))
-            icon_right.bind(on_release=lambda x, item_name=item_name: self.switch_to_order(item_name))
+            icon_right.bind(on_release=lambda x, item_name=self.item_name: self.switch_to_order(self.item_name))
             self.root.get_screen('menu').ids.table_name.add_widget(item)
             self.root.get_screen('menu').ids.item_textfield.text = ""
-            self.cur.execute("INSERT INTO items VALUES (?)", (item_name,))
+            self.cur.execute("INSERT INTO items VALUES (?)", (self.item_name,))
             self.conn.commit()
         
-        if item_name == "reset_database":
+        if self.item_name == "reset_database":
                 self.cur.execute("DROP TABLE items")
                 self.cur.execute('''CREATE TABLE IF NOT EXISTS items
                                 (name TEXT)''')
@@ -628,11 +631,14 @@ class DemoApp(MDApp):
 
     def confirm_order(self):
         # Iterate through the items in the order list and save them to the orders table
+
+
         for item_widget in self.root.get_screen('orderlist').ids.container.children:
             if isinstance(item_widget, CounterItem):
                 item_id = item_widget.custom_item_id
                 quantity = item_widget.counter
-                self.cur.execute("INSERT INTO orders (item_id, quantity) VALUES (?, ?)", (item_id, quantity))
+                tabel = self.selected_item
+                self.cur.execute("INSERT INTO orders (item_id, quantity,tabel) VALUES (?, ?,?)", (item_id, quantity,tabel))
                 self.conn.commit()
 
         self.root.current = 'order'
@@ -643,51 +649,104 @@ class DemoApp(MDApp):
         self.root.get_screen('showorders').ids.container2.clear_widgets()
 
         # Retrieve orders from the database
-        self.cur.execute("SELECT item_id, quantity FROM orders")
-        orders = self.cur.fetchall()
+        self.cur.execute("SELECT item_id, quantity,tabel FROM orders")
+        data = self.cur.fetchall()
+        print(data)
 
-        if orders:
+        tabel_names = []
+        for d in data:
+            item_id, quantity,tabel_name = d
+            tabel_names.append(tabel_name)
+        
+
+        if not self.selected_item in tabel_names:
+            no_order = ThreeLineAvatarListItem(text="Keine Bestellungen")
+            self.root.get_screen('showorders').ids.container2.add_widget(no_order)
+            # make a button to go back to the order screen
+            back_button = MDRectangleFlatButton(text="Zurück", on_release=lambda x: self.switch_to_order2())
+            self.root.get_screen('showorders').ids.container2.add_widget(back_button) 
+            self.root.current = 'showorders'
+            return
+
+        with open('food.csv', newline='') as csvfile:
+            food_list = list(csv.reader(csvfile))
+
+        if data:
+            tabel_names = []
             counter = 0
-            for order in orders:
-                print(order)
-                item_id, quantity = order
 
-                # Retrieve the item name from the database
-                self.cur.execute("SELECT name FROM items WHERE ROWID=?", (item_id,))
-                item_name_result = self.cur.fetchone()
-
-                if item_name_result:
-                    item_name = item_name_result[0]
-
-                    if item_name == self.selected_item:
-
-                        # Create a BoxLayout to organize the order information
-                        order_layout = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(48))
-
-                        # Create labels to display the order details
-                        counter_label = MDLabel(text=str(counter), halign="center", theme_text_color="Primary")
-                        item_label = MDLabel(text=item_name, halign="center", theme_text_color="Primary")
-                        quantity_label = MDLabel(text=str(quantity), halign="center", theme_text_color="Primary")
-
-                        # Add labels to the order layout
-                        order_layout.add_widget(counter_label)
-                        order_layout.add_widget(item_label)
-                        order_layout.add_widget(quantity_label)
-
-                        # Add the order layout to the container
-                        self.root.get_screen('showorders').ids.container2.add_widget(order_layout)
-                        counter += 1
-        else:
-            # Display a message when there are no orders
-            label = MDLabel(text="No orders yet.", halign="center", theme_text_color="Secondary")
-            self.root.get_screen('showorders').ids.container2.add_widget(label)
-
-        # Switch to the 'showorders' screen
+            for d in data:
+                item_id, quantity,tabel_name = d
+                counter += 1
+                if counter == len(food_list):
+                    tabel_names.append(tabel_name)
+                    counter = 0
+        
+        order_number = 1
+        output_line = []
+        print(tabel_names)
+        print(self.selected_item)
+        for j,tabel_name in enumerate(tabel_names):
+            if tabel_name == self.selected_item:
+                print("jaa")
+                for i in range(len(food_list)):
+                    food_type = food_list[(int(data[i][0])-1)][0]
+                    print(food_type)
+                    food_index = i+(j)*len(food_list)
+                    print("index",food_index)
+                    food_quantity = int(data[food_index][1])
+                    if food_quantity == 0:
+                        continue
+                    order_layout = ThreeLineAvatarListItem(text="Bestellung " +str(order_number), secondary_text=str(food_type), tertiary_text=str(food_quantity))
+                    self.root.get_screen('showorders').ids.container2.add_widget(order_layout)
+                    output_line.append(food_type)
+                    output_line.append(food_quantity)
+                    output_line.append(order_number)
+            
+                order_number += 1
+            else:
+                continue
+        back_button = MDRectangleFlatButton(text="Zurück", on_release=lambda x: self.switch_to_order2())
+        self.root.get_screen('showorders').ids.container2.add_widget(back_button) 
         self.root.current = 'showorders'
+
+        # order_number = 1
+
+        # self.root.get_screen('showorders').ids.container2.clear_widgets()  # Clear existing widgets in the container
+
+        # for item_name in item_names:
+        #     if item_name == self.selected_item:
+        #         order_layout = ThreeLineAvatarListItem(text="Bestellung " + str(order_number), secondary_text="", tertiary_text="")
+        #         output_line = []  # Store items for the current order number
+
+        #         for i in range(len(food_list)):
+        #             food_type = food_list[(int(orders[i][0]) - 1)][0]
+        #             food_index = i + (order_number - 1) * len(food_list)
+        #             food_quantity = int(orders[food_index][1])
+
+        #             if food_quantity == 0:
+        #                 continue
+
+        #             output_line.append(f"{food_type}: {food_quantity}")
+
+        #         # Add items to the secondary text of the order_layout
+        #         order_layout.secondary_text = ", ".join(output_line)
+
+        #         if output_line:
+        #             self.root.get_screen('showorders').ids.container2.add_widget(order_layout)
+        #             order_number += 1
+
+        # self.root.current = 'showorders'
+
+
 
 
     def switch_to_order(self,item_name):
-        self.selected_item = item_name  # Store the selected item name
+        self.selected_item = item_name  
+        print(item_name)# Store the selected item name
+        self.root.current = 'order'
+    
+    def switch_to_order2(self):
         self.root.current = 'order'
 
     def switch_to_menu(self):
