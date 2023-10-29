@@ -11,6 +11,10 @@ import sqlite3
 import csv
 import os
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.label import Label
+from kivy.core.window import Window
+from kivy.uix.button import Button
 
 
 
@@ -175,6 +179,7 @@ class DemoApp(MDApp):
             self.root.get_screen('orderlist').ids.container.add_widget(item_widget)
 
         self.root.get_screen('orderlist').ids.container.add_widget(MDRectangleFlatButton(text="Confirm order", on_release=lambda x: self.confirm_order()))
+        self.root.get_screen('orderlist').ids.container.add_widget(MDRectangleFlatButton(text="Cancel order", on_release=lambda x: self.switch_to_order2()))
 
     def update_counter(self, item_widget, delta):
         item_widget.counter += delta  # Update the counter
@@ -232,21 +237,20 @@ class DemoApp(MDApp):
                     counter = 0
         
         order_number = 1
-        output_line = []
         for j,tabel_name in enumerate(tabel_names):
             if tabel_name == self.selected_item:
+                food_type_list = []
+                food_quantity_list = []
                 for i in range(len(food_list)):
                     food_type = food_list[(int(data[i][0])-1)][0]
                     food_index = i+(j)*len(food_list)
                     food_quantity = int(data[food_index][1])
                     if food_quantity == 0:
                         continue
+                    food_type_list.append(food_type)
+                    food_quantity_list.append(food_quantity)
                     order_layout = ThreeLineAvatarListItem(text="Bestellung " +str(order_number), secondary_text=str(food_type), tertiary_text=str(food_quantity))
                     self.root.get_screen('showorders').ids.container2.add_widget(order_layout)
-                    output_line.append(food_type)
-                    output_line.append(food_quantity)
-                    output_line.append(order_number)
-            
                 order_number += 1
             else:
                 continue
